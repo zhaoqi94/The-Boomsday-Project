@@ -11,9 +11,10 @@ label = dataset.target[:]
 scaler = StandardScaler()
 data = scaler.fit_transform(data)
 
-
 # 对参数太敏感了！！！
-clf = SVC(C=1.0, kernel="linear",max_iter=10000, tol=0.01, eps=0.01)
+# 线性的为啥还不如感知机！！！
+#
+clf = SVC(C=1.0, kernel="linear",max_iter=10000, tol=0.001, eps=0.01)
 # clf = SVC(C=10.0, kernel="gaussian",max_iter=10000, tol=0.01, eps=0.01)
 # clf = SVC(C=1.0, kernel="poly", max_iter=10000, tol=0.01, eps=0.01)
 # clf = SVC(C=1.0, kernel="sigmoid", max_iter=10000, tol=0.01, eps=0.01)
