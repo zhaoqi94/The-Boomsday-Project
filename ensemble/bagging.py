@@ -8,7 +8,7 @@ class BaggingClassifier:
         self.base_estimator = base_estimator
         self.n_estimators = n_estimators
         self.sample_rate = sample_rate
-        self.bootstrap = bootstrap
+        self.bootstrap = bootstrap      # bootstrap表示有放回的采样
 
         # 获得基学习器的深拷贝
         self.estimators = [copy.deepcopy(self.base_estimator) for _ in range(self.n_estimators)]
@@ -21,7 +21,7 @@ class BaggingClassifier:
             # 从整个训练集中采样出子集
             self.estimators[i].fit(sample_X, sample_y)
 
-    # 投票
+    # 投票 Majority voting
     def predict(self, X):
         results = []
         for i in range(self.n_estimators):
