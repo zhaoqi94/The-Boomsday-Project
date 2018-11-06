@@ -12,6 +12,8 @@ class AdaBoostClassifier:
         self.w = None
         # 分类器权重
         self.alpha = None
+        # 类别
+        self.classes = None
 
     def fit(self, X, y):
         num = X.shape[0]
