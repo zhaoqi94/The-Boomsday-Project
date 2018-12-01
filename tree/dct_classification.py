@@ -6,16 +6,18 @@ import tree.tree_utils as tree_utils
 
 
 class DecisionTreeClassifier:
-    def __init__(self, criterion="gini", max_depth=None,
+    def __init__(self, criterion="gini", max_depth=None,max_features=None,
                  min_samples_split=1, min_samples_leaf=1):
         self.criterion = criterion
         self.max_depth = max_depth
+        self.max_features = max_features
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
 
+        # process
         if self.max_depth == None:
             self.max_depth = 100000
-        self.tree_builder = tree_utils.TreeBuilder(self.max_depth, self.min_samples_split)
+        self.tree_builder = tree_utils.TreeBuilder(self.max_depth, self.max_features, self.min_samples_split)
         self.tree = None
 
     def fit(self, X, y):
@@ -44,5 +46,5 @@ class DecisionTreeClassifier:
     def score(self, X, y):
         return np.mean(self.predict(X) == y)
 
-    def decision_path():
+    def decision_path(self):
         pass

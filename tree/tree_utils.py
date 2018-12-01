@@ -1,5 +1,6 @@
 import numpy as np
-
+import six
+import numbers
 
 class Tree:
     def __init__(self, attr_index=-1, split_value=None,
@@ -15,19 +16,51 @@ class Tree:
 
 
 class TreeBuilder:
-    def __init__(self, max_depth, min_samples_split):
+    def __init__(self, max_depth, max_features, min_samples_split):
         self.max_depth = max_depth
+        self.max_features = max_features
         self.min_samples_split = min_samples_split
+        self.max_features_ = None
 
     def build(self, X, y):
+        # 处理max_features,即树中每个节点选择属性时属性集合所含属性的最大值
+        # 这个功能可以方便随机森林的随机属性选择
+        max_features = X.shape[1]
+        if isinstance(self.max_features, six.string_types):
+            if self.max_features == "auto":
+                self.max_features_ = max(1, int(np.sqrt(max_features)))
+            elif self.max_features == "sqrt":
+                self.max_features_ = max(1, int(np.sqrt(max_features)))
+            elif self.max_features == "log2":
+                self.max_features_ = max(1, int(np.log2(max_features)))
+            else:
+                raise ValueError(
+                    'Invalid value for max_features. Allowed string '
+                    'values are "auto", "sqrt" or "log2".')
+        elif self.max_features is None:
+            self.max_features_ = max_features
+        elif isinstance(self.max_features, (numbers.Integral, np.integer)):
+            self.max_features_ = self.max_features
+        else:  # float
+            if self.max_features > 0.0:
+                self.max_features_ = max(1,
+                                   int(self.max_features * max_features))
+            else:
+                self.max_features_ = 0
+
+        # print(self.max_features_)
+
         return self._build(X, y, 1)
 
     def _build(self, X, y, depth, ):
         sample_num = X.shape[0]
         feature_num = X.shape[1]
 
-        if (depth > self.max_depth) and (sample_num <= self.min_samples_split):
+        if (depth > self.max_depth) and (sample_num < self.min_samples_split):
             return Tree(results=majority(y))
+
+        # 选择候选特征集
+        selected_features = np.random.choice(feature_num, self.max_features_, replace=False)
 
         current_impurity = gini(y)
 
@@ -41,7 +74,8 @@ class TreeBuilder:
             "best_right_y": None,
         }
 
-        for j in range(feature_num):
+        # for j in range(feature_num):
+        for j in selected_features:
             for i in range(sample_num):
                 current_attr_index = j
                 current_split_value = X[i, j]
