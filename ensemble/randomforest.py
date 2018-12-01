@@ -1,5 +1,5 @@
 from tree.dct_classification import DecisionTreeClassifier
-# 用自己的决策树真的时蜗牛般的速度
+# 用自己的决策树真的时蜗牛般的速度 效果还差！
 # from sklearn.tree import DecisionTreeClassifier
 from ensemble.bagging import BaggingClassifier
 
