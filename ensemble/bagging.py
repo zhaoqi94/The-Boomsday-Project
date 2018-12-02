@@ -2,7 +2,7 @@ import numpy as np
 import copy
 from collections import Counter
 
-class BaggingClassifier:
+class BaseBagging:
     def __init__(self, base_estimator, n_estimators,
                  sample_rate, bootstrap=True):
         self.base_estimator = base_estimator
@@ -21,6 +21,15 @@ class BaggingClassifier:
             # 从整个训练集中采样出子集
             self.estimators[i].fit(sample_X, sample_y)
 
+
+class BaggingClassifier(BaseBagging):
+    def __init__(self, base_estimator, n_estimators,
+                 sample_rate, bootstrap=True):
+        super(BaggingClassifier, self).__init__(
+            base_estimator, n_estimators,
+            sample_rate, bootstrap
+        )
+
     # 投票 Majority voting
     def predict(self, X):
         results = []
@@ -31,6 +40,7 @@ class BaggingClassifier:
 
         return y_pred
 
+    # 准确率
     def score(self, X, y):
         y_pred = self.predict(X)
         return np.mean(y_pred==y)
@@ -40,6 +50,29 @@ class BaggingClassifier:
         dcf = []
         for i in range(self.n_estimators):
             dcf.append(self.estimators[i].decision_function(X))
-        avg = np.mean(dcf, axis=1)
+        avg = np.mean(dcf, axis=0)
 
         return avg
+
+class BaggingRegressor(BaseBagging):
+    def __init__(self, base_estimator, n_estimators,
+                 sample_rate, bootstrap=True):
+        super(BaggingRegressor, self).__init__(
+            base_estimator, n_estimators,
+            sample_rate, bootstrap
+        )
+
+    # 预测回归值
+    def predict(self, X):
+        results = []
+        for i in range(self.n_estimators):
+            results.append(self.estimators[i].predict(X))
+        y_pred = np.mean(results, axis=0)
+
+        return y_pred
+
+    # 参考sklearn 回归的指标
+    def score(self, X, y):
+        return 1 - np.sum(np.square(self.predict(X) - np.array(y))) / np.sum(np.square(np.mean(y) - np.array(y)))
+
+

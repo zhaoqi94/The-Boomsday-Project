@@ -1,6 +1,8 @@
 import numpy as np
 import six
 import numbers
+from tree.splitter import Splitter
+
 
 class Tree:
     def __init__(self, attr_index=-1, split_value=None,
@@ -16,13 +18,18 @@ class Tree:
 
 
 class TreeBuilder:
-    def __init__(self, max_depth, max_features, min_samples_split):
+    def __init__(self, criterion, max_depth, max_features, min_samples_split, min_samples_leaf):
+        self.criterion = criterion
         self.max_depth = max_depth
         self.max_features = max_features
         self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.criterion_ = None
         self.max_features_ = None
 
     def build(self, X, y):
+        # 处理criterion
+        self.criterion_ = CRITERION[self.criterion]
         # 处理max_features,即树中每个节点选择属性时属性集合所含属性的最大值
         # 这个功能可以方便随机森林的随机属性选择
         max_features = X.shape[1]
@@ -56,16 +63,16 @@ class TreeBuilder:
         sample_num = X.shape[0]
         feature_num = X.shape[1]
 
-        if (depth > self.max_depth) and (sample_num < self.min_samples_split):
-            return Tree(results=majority(y))
+        if (depth > self.max_depth) or (sample_num < self.min_samples_split):
+            return Tree(results=self._aggregate(y))
 
         # 选择候选特征集
         selected_features = np.random.choice(feature_num, self.max_features_, replace=False)
 
-        current_impurity = gini(y)
+        current_impurity = self.criterion_(y)
 
         best_split = {
-            "best_gain": 0.0,
+            "best_gain": -np.inf,
             "best_attr_index": None,
             "best_split_value": None,
             "best_left_X": None,
@@ -74,19 +81,26 @@ class TreeBuilder:
             "best_right_y": None,
         }
 
-        # for j in range(feature_num):
+
         for j in selected_features:
-            for i in range(sample_num):
+            # 找到切分点
+            split_values = list(set(X[:, j]))
+            split_values.extend([-np.inf, np.inf])
+            split_values.sort()
+            split_values = [(split_values[i] + split_values[i + 1]) / 2.0
+                            for i in range(len(split_values) - 1)]
+
+            for i in split_values:
                 current_attr_index = j
-                current_split_value = X[i, j]
+                current_split_value = i
                 left_X, left_y, right_X, right_y = split(X, y, current_attr_index, current_split_value)
 
                 impurity = 0
-                impurity += gini(left_y) * left_X.shape[0] / sample_num
-                impurity += gini(right_y) * right_X.shape[0] / sample_num
+                impurity += self.criterion_(left_y) * left_X.shape[0] / sample_num
+                impurity += self.criterion_(right_y) * right_X.shape[0] / sample_num
                 current_gain = current_impurity - impurity
 
-                if current_gain > best_split["best_gain"]:
+                if current_gain >= best_split["best_gain"]:
                     best_split["best_gain"] = current_gain
                     best_split["best_attr_index"] = current_attr_index
                     best_split["best_split_value"] = current_split_value
@@ -95,9 +109,18 @@ class TreeBuilder:
                     best_split["right_X"] = right_X
                     best_split["right_y"] = right_y
 
-        if best_split["best_gain"] == 0:
-            return Tree(results=majority(y))
+        # 在左子树或右子树为空的情况下成立，防止出现死循环
+        # 其他情形会出现==0吗？
+        # 会出现 <= 0 吗？
+        # if best_split["best_gain"] >= -1e-10 and best_split["best_gain"] <= 1e-10:
+        #     return Tree(results=self._aggregate(y))
+        # print(best_split["best_gain"])
+        # print(best_split["left_X"].shape)
+        # print(best_split["right_X"].shape)
+        # print(best_split["right_X"].shape[0],best_split["right_X"].shape[1])
 
+        if best_split["left_X"].shape[0] == 0 or best_split["right_X"].shape[0] == 0:
+            return Tree(results=self._aggregate(y))
 
         depth += 1
         left_sub_tree = self._build(
@@ -117,21 +140,11 @@ class TreeBuilder:
             right_sub_tree=right_sub_tree,
         )
 
-
-def gini(y):
-    if y.shape[0] == 0:
-        return 0.0
-
-    gini = 1.0
-    unique_item, unique_counts = np.unique(y, return_counts=True)
-    N = y.shape[0]
-    gini -= np.sum(np.square(unique_counts)) / (N*N)
-    return gini
-
-# choose the most frequent label as the result
-def majority(y):
-    unique_item, unique_counts = np.unique(y, return_counts=True)
-    return unique_item[np.argmax(unique_item)]
+    def _aggregate(self, y):
+        if self.criterion == "gini":
+            return majority(y)
+        elif self.criterion == "mse":
+            return mean(y)
 
 
 # split the dataset (X, y) to two parts w.r.t (current_attr_index, current_split_value)
@@ -152,3 +165,34 @@ def split(X, y, current_attr_index, current_split_value):
     right_X = np.array(right_X)
     right_y = np.array(right_y)
     return left_X, left_y, right_X, right_y
+
+# 选择出现频率最高的标签
+def majority(y):
+    unique_item, unique_counts = np.unique(y, return_counts=True)
+    return unique_item[np.argmax(unique_item)]
+
+# 选择平均值
+def mean(y):
+    return np.mean(y)
+
+def gini(y):
+    if y.shape[0] == 0:
+        return 0.0
+
+    gini = 1.0
+    unique_item, unique_counts = np.unique(y, return_counts=True)
+    N = y.shape[0]
+    gini -= np.sum(np.square(unique_counts)) / (N*N)
+    return gini
+
+
+def mse(y):
+    if y.shape[0] == 0:
+        return 0.0
+
+    return np.mean(np.square(y-np.mean(y)))
+
+
+
+
+CRITERION = {"gini": gini, "mse": mse}
