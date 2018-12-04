@@ -69,8 +69,8 @@ class BaseDecisionTree:
         # 构造splitter
         splitter = SPLITTERS[self.splitter](criterion, max_features, min_samples_leaf)
 
-        builder = tree_utils.TreeBuilder(splitter, max_depth, max_features,
-                                         min_samples_split, min_samples_leaf)
+        builder = tree_utils.TreeBuilder(splitter,
+                        max_depth, min_samples_split, min_samples_leaf)
 
         self.tree = builder.build(X, y)
 
@@ -79,21 +79,7 @@ class BaseDecisionTree:
         return self
 
     def predict(self, X):
-        y_pred = []
-
-        for i in range(X.shape[0]):
-            tree = self.tree
-            while(True):
-                if tree.results != None:
-                    y_pred.append(tree.results)
-                    break
-
-                if X[i][tree.attr_index] <= tree.split_value:
-                    tree = tree.left_sub_tree
-                else:
-                    tree = tree.right_sub_tree
-
-        return np.array(y_pred)
+        return self.tree.predict(X)
 
     # TODO: 输出决策路径
     def decision_path(self):

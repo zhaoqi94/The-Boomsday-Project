@@ -2,6 +2,15 @@ import numpy as np
 from abc import ABCMeta, abstractmethod
 from tree.criterion import Criterion
 
+FEATURE_THRESHOLD = 1e-7
+
+class SplitRecord:
+    impurity_gain = -np.inf  # impurity gain
+    attr_index = -1 # 划分的属性
+    split_value = 0.0 # 划分点（值）
+    pos = 0 # 划分的位置，用于划分左右子树 左子树[start,pos),右子树[pos,end)
+
+
 class Splitter(metaclass=ABCMeta):
     """
     Spliter类抽象出划分属性的过程
@@ -14,14 +23,21 @@ class Splitter(metaclass=ABCMeta):
         self.min_samples_leaf = min_samples_leaf
         self.X = None
         self.y = None
+        self.indices = None
+        self.start = None
+        self.end = None
 
     def init(self, X, y):
         self.X = X
         self.y = y
+        self.indices = np.arange(0, X.shape[0])
 
-    def node_reset(self, X, y):
-        self.X = X
-        self.y = y
+    def node_reset(self, start, end):
+        # 保存start和end
+        self.start = start
+        self.end = end
+        # 重新初始化criterion
+        self.criterion.init(self.y, self.indices, start, end)
 
     def node_split(self):
         pass
@@ -30,7 +46,7 @@ class Splitter(metaclass=ABCMeta):
         return self.criterion.node_impurity()
 
     def node_value(self):
-        return self.criterion.node_value(self.y)
+        return self.criterion.node_value()
 
 
 class BestSplitter(Splitter):
@@ -41,69 +57,62 @@ class BestSplitter(Splitter):
         )
 
     def node_split(self):
+        # 处理一下变量名 省略‘self.’
         X,y = self.X,self.y
         sample_num, feature_num = X.shape
+        indices = self.indices
+        start = self.start
+        end = self.end
 
         # 选择候选特征集
         selected_features = np.random.choice(feature_num, self.max_features, replace=False)
+        # print(feature_num)
+        best_split = SplitRecord()
 
-        current_impurity = self.criterion.node_impurity(y)
-
-        best_split = {
-            "best_gain": -np.inf,
-            "best_attr_index": None,
-            "best_split_value": None,
-            "best_left_X": None,
-            "best_left_y": None,
-            "best_right_X": None,
-            "best_right_y": None,
-        }
-
-
+        import time
         for j in selected_features:
-            # 找到切分点
-            split_values = list(set(X[:, j]))
-            split_values.extend([-np.inf, np.inf])
-            split_values.sort()
-            split_values = [(split_values[i] + split_values[i + 1]) / 2.0
-                            for i in range(len(split_values) - 1)]
+            # t1 = time.time()
+            current_attr_index = j
+            # TODO 重置一下criterion
+            self.criterion.reset()
+            # TODO 使用候选特征对indices进行排序
 
-            for i in split_values:
-                current_attr_index = j
-                current_split_value = i
-                left_X, left_y, right_X, right_y = split(X, y, current_attr_index, current_split_value)
+            sorted_ind = np.argsort(X[indices[start:end], j])
+            indices[start:end] = indices[start:end][sorted_ind]
+            sorted_feature = np.append(X[indices[start:end], j],[np.inf])
 
-                impurity = 0
-                impurity += self.criterion.node_impurity(left_y) * left_X.shape[0] / sample_num
-                impurity += self.criterion.node_impurity(right_y) * right_X.shape[0] / sample_num
-                current_gain = current_impurity - impurity
+            # TODO 移动游标，刷选出最好的分割点
+            # 注意其实x>=-np.inf和x<=np.inf这个分割点本质上是一样的
+            # 注意，分割点仍然是相邻的游标位置处的值相加求和除以2，但是不需要事先计算出来
+            # 举个例子：
+            # x==>[1,2,4,10,100]
+            # 所有候选分割点是[1.5,3.0,55.0,inf] 判别左右子树用 ‘<=’
+            # t2 = time.time()
+            # for pos in range(start, end+1):
+            pos = start
+            while pos < end:
+                # TODO 移动pos点到合适的位置，目的是过滤掉差不多相等的特征值
+                while ( pos < end and sorted_feature[pos-start+1] <= sorted_feature[pos-start] + FEATURE_THRESHOLD):
+                    pos = pos + 1
+                # TODO 按pos点进行分割 并调用criterion进行计算
+                self.criterion.update(pos)
+                impurity_gain = self.criterion.proxy_impurity_gain()
 
-                if current_gain >= best_split["best_gain"]:
-                    best_split["best_gain"] = current_gain
-                    best_split["best_attr_index"] = current_attr_index
-                    best_split["best_split_value"] = current_split_value
-                    best_split["left_X"] = left_X
-                    best_split["left_y"] = left_y
-                    best_split["right_X"] = right_X
-                    best_split["right_y"] = right_y
+                if impurity_gain >= best_split.impurity_gain:
+                    best_split.impurity_gain = impurity_gain
+                    best_split.attr_index = current_attr_index
+                    best_split.split_value = (sorted_feature[pos-start] + sorted_feature[pos-start-1]) / 2.0
+                    best_split.pos = pos
+                pos = pos + 1
+            # t3 = time.time()
+            # print("1-2",t2-t1)
+            # print("2-3",t3-t2)
 
+        # TODO 需要重排啊
+        if best_split.pos < end:
+            sorted_ind = np.argsort(X[indices[start:end], best_split.attr_index])
+            indices[start:end] = indices[start:end][sorted_ind]
+
+        # end_time = time.time()
+        # print(end_time-start_time)
         return best_split
-
-# split the dataset (X, y) to two parts w.r.t (current_attr_index, current_split_value)
-def split(X, y, current_attr_index, current_split_value):
-    left_X = []
-    left_y = []
-    right_X = []
-    right_y = []
-    for i in range(X.shape[0]):
-        if X[i][current_attr_index] <= current_split_value:
-            left_X.append(X[i])
-            left_y.append(y[i])
-        else:
-            right_X.append(X[i])
-            right_y.append(y[i])
-    left_X = np.array(left_X)
-    left_y = np.array(left_y)
-    right_X = np.array(right_X)
-    right_y = np.array(right_y)
-    return left_X, left_y, right_X, right_y
