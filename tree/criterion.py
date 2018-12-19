@@ -91,7 +91,8 @@ class Gini(Criterion):
     def node_value(self):
         y = self.y[self.indices[self.start:self.end]]
         unique_item, unique_counts = np.unique(y, return_counts=True)
-        return unique_item[np.argmax(unique_item)]
+        return unique_item[np.argmax(unique_counts)]
+        # return unique_item[np.argmax(unique_item)]
 
 class MSE(Criterion):
     def __init__(self):
