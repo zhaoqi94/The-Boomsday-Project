@@ -32,7 +32,6 @@ class BaseKNeighbors:
                 distances = np.linalg.norm(self.X - X[i], axis=1)
                 # 找到k个最近邻的样本
                 top_k = np.argsort(distances)[0:self.n_neighbors]
-                print(distances[top_k])
                 # print(np.sort(distances_i))
                 # 使用这k个样本的y值进行预测
                 # 分类：投票 回归：平均
