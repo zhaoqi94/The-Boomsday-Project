@@ -21,7 +21,7 @@ print(score)
 end_time = datetime.now()
 print((end_time-start_time).seconds)
 
-# 需要注意的是，在sklearn的RandomForestRegressor中max_features="auto"就是全部的特征
+# 需要注意的是，在sklearn的RandomForestRegressor中max  _features="auto"就是全部的特征
 # 和随机森林分类不一样！
 # 但是目前我的实现max_features="auto"仍然和分类是一样的！
 # 所以效果会比sklearn差一点

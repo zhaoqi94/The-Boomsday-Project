@@ -1,7 +1,7 @@
 # TODO KNN 算法
-# TODO 1. Base KNN 作为分类器和回归器的基类，直接保存样本或使用KDTree BallTree
-# TODO 2. KNN分类器 投票
-# TODO 3. KNN回归 平均
+# 1. Base KNN 作为分类器和回归器的基类，直接保存样本或使用KDTree BallTree
+# 2. KNN分类器 投票
+# 3. KNN回归 平均
 # TODO 4. 不同的距离度量
 
 import numpy as np

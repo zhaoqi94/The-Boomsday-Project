@@ -3,9 +3,10 @@
 # 2. 使用样本的indice而不是样本本身
 # 3. 用bounding box计算距离来进行“剪枝” ，首先弄个“假”边界盒即可，即它只是对空间的划分，而不是根据样本收缩的边界 (确实剪枝的数量变多了)
 # 4. “真”边界盒 每次要算样本的范围
-# TODO 5. 用更高效的方法计算“真”bounding_box https://github.com/jmhodges/kdtree2/blob/master/src-c%2B%2B/kdtree2.cpp
+# TODO 5. 用更高效的方法计算“真”bounding_box 可以把两个子节点的边界盒回溯上来，合并成新的边界盒 https://github.com/jmhodges/kdtree2/blob/master/src-c%2B%2B/kdtree2.cpp
 # TODO 6. 限定叶节点的个数,而不是每个节点只有一个样本点
 # TODO 7. 使用优先队列/堆，但是有点难（4和5好像必须合起来做？）
+# TODO 8. 似乎比较好的实现，比如sklearn，在内部节点里是不放样本的！
 
 import numpy as np
 import copy
@@ -90,6 +91,7 @@ class KDTree:
 
 
         '''
+        # kdtree v3.0
         # “假”/“松”的边界盒
         cut_val = self.X[median_X_ind, axis]
         lower = upper = cut_val
@@ -103,6 +105,7 @@ class KDTree:
         right = self._build_tree(right_X_ind, depth + 1,  box.trimRight(axis, upper))
         '''
 
+        # kdtree v4.0
         # "真"/"紧"的边界盒
         if len(left_X_ind) != 0:
             left_X = self.X[left_X_ind]
